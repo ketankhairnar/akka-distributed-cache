@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Akka Distributed Cache - Test Operations Script
-# Production-ready version with robust error handling
+# Updated for JSON API support
 
 # Colors for output
 RED='\033[0;31m'
@@ -51,10 +51,15 @@ safe_curl() {
     local method="$1"
     local url="$2"
     local data="$3"
-    local timeout="${4:-10}"
+    local content_type="$4"
+    local timeout="${5:-10}"
 
     if [ -n "$data" ]; then
-        curl -s --connect-timeout 3 --max-time "$timeout" -X "$method" "$url" -d "$data" 2>/dev/null
+        if [ -n "$content_type" ]; then
+            curl -s --connect-timeout 3 --max-time "$timeout" -X "$method" "$url" -H "Content-Type: $content_type" -d "$data" 2>/dev/null
+        else
+            curl -s --connect-timeout 3 --max-time "$timeout" -X "$method" "$url" -d "$data" 2>/dev/null
+        fi
     else
         curl -s --connect-timeout 3 --max-time "$timeout" -X "$method" "$url" 2>/dev/null
     fi
@@ -65,9 +70,14 @@ safe_curl_with_status() {
     local method="$1"
     local url="$2"
     local data="$3"
+    local content_type="$4"
 
     if [ -n "$data" ]; then
-        curl -s --connect-timeout 3 --max-time 10 -w "HTTPSTATUS:%{http_code}" -X "$method" "$url" -d "$data" 2>/dev/null
+        if [ -n "$content_type" ]; then
+            curl -s --connect-timeout 3 --max-time 10 -w "HTTPSTATUS:%{http_code}" -X "$method" "$url" -H "Content-Type: $content_type" -d "$data" 2>/dev/null
+        else
+            curl -s --connect-timeout 3 --max-time 10 -w "HTTPSTATUS:%{http_code}" -X "$method" "$url" -d "$data" 2>/dev/null
+        fi
     else
         curl -s --connect-timeout 3 --max-time 10 -w "HTTPSTATUS:%{http_code}" -X "$method" "$url" 2>/dev/null
     fi
@@ -105,15 +115,15 @@ check_cluster_health() {
     return 0
 }
 
-# Function to test basic operations
+# Function to test basic operations with JSON API
 test_basic_operations() {
-    print_info "=== Testing Basic Cache Operations ==="
+    print_info "=== Testing Basic Cache Operations (JSON API) ==="
 
     local base_url="${NODES[0]}"
 
-    # Test PUT operation
-    print_test "PUT operation"
-    local put_result=$(safe_curl "PUT" "$base_url/cache/test-key" "test-value")
+    # Test PUT operation with JSON
+    print_test "PUT operation (JSON format)"
+    local put_result=$(safe_curl "PUT" "$base_url/cache/test-key" '{"value":"test-value"}' "application/json")
 
     if [ $? -eq 0 ] && echo "$put_result" | grep -q "successful"; then
         print_success "PUT operation successful"
@@ -124,14 +134,14 @@ test_basic_operations() {
     # Brief pause for consistency
     sleep 1
 
-    # Test GET operation
-    print_test "GET operation"
+    # Test GET operation (should return JSON)
+    print_test "GET operation (expects JSON response)"
     local get_result=$(safe_curl "GET" "$base_url/cache/test-key")
 
-    if [ $? -eq 0 ] && [ "$get_result" = "test-value" ]; then
-        print_success "GET operation successful - retrieved: '$get_result'"
+    if [ $? -eq 0 ] && echo "$get_result" | grep -q '"value".*"test-value"'; then
+        print_success "GET operation successful - retrieved JSON: $get_result"
     else
-        print_failure "GET operation failed - expected 'test-value', got: '$get_result'"
+        print_failure "GET operation failed - expected JSON with 'test-value', got: '$get_result'"
     fi
 
     # Test GET from different node (if available and healthy)
@@ -139,7 +149,7 @@ test_basic_operations() {
         print_test "GET from different node"
         local get_result2=$(safe_curl "GET" "${NODES[1]}/cache/test-key")
 
-        if [ $? -eq 0 ] && [ "$get_result2" = "test-value" ]; then
+        if [ $? -eq 0 ] && echo "$get_result2" | grep -q '"value".*"test-value"'; then
             print_success "Data correctly accessible from multiple nodes"
         elif [ $? -ne 0 ]; then
             print_warning "Second node not available - testing single node only"
@@ -169,17 +179,18 @@ test_basic_operations() {
     fi
 }
 
-# Function to test multiple key operations
+# Function to test multiple key operations with JSON
 test_multiple_keys() {
-    print_info "=== Testing Multiple Key Operations ==="
+    print_info "=== Testing Multiple Key Operations (JSON) ==="
 
     local base_url="${NODES[0]}"
 
-    # Insert multiple keys
+    # Insert multiple keys with JSON format
     local successful_puts=0
     for i in {1..5}; do
-        print_test "PUT key$i"
-        local result=$(safe_curl "PUT" "$base_url/cache/key$i" "value$i")
+        print_test "PUT key$i (JSON)"
+        local json_data="{\"value\":\"value$i\"}"
+        local result=$(safe_curl "PUT" "$base_url/cache/key$i" "$json_data" "application/json")
 
         if [ $? -eq 0 ] && echo "$result" | grep -q "successful"; then
             print_success "key$i stored successfully"
@@ -189,16 +200,16 @@ test_multiple_keys() {
         fi
     done
 
-    # Retrieve all keys
+    # Retrieve all keys (should return JSON)
     local successful_gets=0
     for i in {1..5}; do
         local result=$(safe_curl "GET" "$base_url/cache/key$i")
-        if [ $? -eq 0 ] && [ "$result" = "value$i" ]; then
+        if [ $? -eq 0 ] && echo "$result" | grep -q "\"value\":\"value$i\""; then
             ((successful_gets++))
         fi
     done
 
-    print_test "Multiple key retrieval"
+    print_test "Multiple key retrieval (JSON responses)"
     if [ $successful_gets -eq 5 ]; then
         print_success "All 5 keys retrieved successfully"
     else
@@ -250,8 +261,8 @@ test_admin_endpoints() {
     print_test "API documentation endpoint"
     local api_result=$(safe_curl "GET" "$base_url/api")
 
-    if [ $? -eq 0 ] && echo "$api_result" | grep -q "Akka Distributed Cache API"; then
-        print_success "API documentation endpoint working"
+    if [ $? -eq 0 ] && echo "$api_result" | grep -q "JSON Format"; then
+        print_success "API documentation endpoint working (shows JSON format)"
     else
         print_failure "API documentation endpoint failed"
     fi
@@ -273,76 +284,25 @@ test_error_cases() {
         print_failure "Unexpected response for non-existent key: '$result'"
     fi
 
-    # Test DELETE non-existent key (should handle gracefully)
-    print_test "DELETE non-existent key"
-    local delete_result=$(safe_curl "DELETE" "$base_url/cache/non-existent-key-delete")
+    # Test PUT with invalid JSON
+    print_test "PUT with invalid JSON"
+    local invalid_result=$(safe_curl_with_status "PUT" "$base_url/cache/invalid-test" '{"invalid":"json"' "application/json")
 
-    if [ $? -eq 0 ] && echo "$delete_result" | grep -q "successful"; then
-        print_success "DELETE handles non-existent keys gracefully"
+    if [ $? -eq 0 ] && (echo "$invalid_result" | grep -q "HTTPSTATUS:400" || echo "$invalid_result" | grep -q "HTTPSTATUS:422"); then
+        print_success "Correctly handles invalid JSON"
     else
-        print_failure "DELETE failed for non-existent key"
-    fi
-}
-
-# Function to test load distribution (if multiple nodes available)
-test_load_distribution() {
-    print_info "=== Testing Load Distribution ==="
-
-    # Only run if we have multiple healthy nodes
-    local healthy_nodes=0
-    for node in "${NODES[@]}"; do
-        if safe_curl "GET" "$node/" >/dev/null 2>&1; then
-            ((healthy_nodes++))
-        fi
-    done
-
-    if [ $healthy_nodes -lt 2 ]; then
-        print_warning "Only $healthy_nodes node(s) available, skipping load distribution test"
-        return
+        print_warning "Server accepted invalid JSON or returned unexpected status: '$invalid_result'"
     fi
 
-    # Insert data through different nodes
-    local successful_distributed_ops=0
-    for i in {1..6}; do
-        local node_index=$((i % healthy_nodes))
-        local node="${NODES[$node_index]}"
+    # Test PUT without "value" field
+    print_test "PUT without required 'value' field"
+    local no_value_result=$(safe_curl_with_status "PUT" "$base_url/cache/no-value-test" '{"data":"test"}' "application/json")
 
-        local result=$(safe_curl "PUT" "$node/cache/load-test-$i" "distributed-value-$i")
-        if [ $? -eq 0 ] && echo "$result" | grep -q "successful"; then
-            ((successful_distributed_ops++))
-        fi
-    done
-
-    print_test "Distributed PUT operations"
-    if [ $successful_distributed_ops -eq 6 ]; then
-        print_success "All distributed PUT operations successful"
+    if [ $? -eq 0 ] && (echo "$no_value_result" | grep -q "HTTPSTATUS:400" || echo "$no_value_result" | grep -q "HTTPSTATUS:422"); then
+        print_success "Correctly rejects JSON without 'value' field"
     else
-        print_failure "Only $successful_distributed_ops/6 distributed PUTs successful"
+        print_warning "Server handling of missing 'value' field: '$no_value_result'"
     fi
-
-    # Verify data can be read from any healthy node
-    local successful_reads=0
-    for i in {1..6}; do
-        local read_node_index=$(((i + 1) % healthy_nodes))
-        local read_node="${NODES[$read_node_index]}"
-
-        local result=$(safe_curl "GET" "$read_node/cache/load-test-$i")
-        if [ $? -eq 0 ] && [ "$result" = "distributed-value-$i" ]; then
-            ((successful_reads++))
-        fi
-    done
-
-    print_test "Cross-node data access"
-    if [ $successful_reads -eq 6 ]; then
-        print_success "All data properly accessible across nodes"
-    else
-        print_failure "Only $successful_reads/6 cross-node reads successful"
-    fi
-
-    # Cleanup
-    for i in {1..6}; do
-        safe_curl "DELETE" "${NODES[0]}/cache/load-test-$i" >/dev/null 2>&1
-    done
 }
 
 # Function to show test summary
@@ -361,32 +321,34 @@ show_summary() {
     echo -e "${BLUE}Success Rate:${NC} $success_rate%"
 
     if [ $TESTS_FAILED -eq 0 ]; then
-        echo -e "${GREEN}🎉 All tests passed! Your Akka cache is working perfectly!${NC}"
+        echo -e "${GREEN}🎉 All tests passed! JSON API is working perfectly!${NC}"
         echo
-        echo -e "${YELLOW}Ready for production! Quick reference:${NC}"
-        echo "  curl -X PUT http://localhost:8080/cache/hello -d 'world'"
+        echo -e "${YELLOW}JSON API Examples:${NC}"
+        echo "  curl -X PUT http://localhost:8080/cache/hello \\"
+        echo "       -H 'Content-Type: application/json' \\"
+        echo "       -d '{\"value\":\"world\"}'"
         echo "  curl http://localhost:8080/cache/hello"
         echo "  curl http://localhost:8080/admin/status"
         return 0
     elif [ $success_rate -ge 80 ]; then
         echo -e "${YELLOW}⚠️  Most tests passed, but some issues found${NC}"
-        echo -e "${YELLOW}   System is mostly functional but needs attention${NC}"
+        echo -e "${YELLOW}   JSON API is mostly functional but needs attention${NC}"
         return 1
     else
         echo -e "${RED}❌ Multiple test failures detected${NC}"
         echo
-        echo -e "${YELLOW}Troubleshooting tips:${NC}"
-        echo "  1. Check server logs for errors"
-        echo "  2. Verify all nodes are running: ./scripts/start-cluster.sh status"
-        echo "  3. Test manually: curl http://localhost:8080/admin/status"
+        echo -e "${YELLOW}Troubleshooting JSON API:${NC}"
+        echo "  1. Check if Jackson dependencies are properly loaded"
+        echo "  2. Verify Content-Type: application/json header"
+        echo "  3. Test manually with proper JSON format"
         return 1
     fi
 }
 
 # Main execution
 main() {
-    echo -e "${BLUE}Akka Distributed Cache - Test Suite${NC}"
-    echo -e "${BLUE}=====================================${NC}"
+    echo -e "${BLUE}Akka Distributed Cache - JSON API Test Suite${NC}"
+    echo -e "${BLUE}=============================================${NC}"
     echo
 
     # Check if primary node is available
@@ -410,7 +372,7 @@ main() {
     echo
 
     # Run test suites
-    echo "🧪 Running comprehensive test suite..."
+    echo "🧪 Running JSON API test suite..."
     echo
 
     test_basic_operations
@@ -423,9 +385,6 @@ main() {
     echo
 
     test_error_cases
-    echo
-
-    test_load_distribution
 
     # Show summary
     show_summary

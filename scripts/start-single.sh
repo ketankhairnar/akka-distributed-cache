@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Simple single-node startup script for development/testing
+# Simple single-node startup script for development/testing with Java 11+ fix
 # Usage: ./scripts/start-single.sh [akka_port] [http_port]
 
 set -e
@@ -77,9 +77,12 @@ else
 fi
 
 echo
-echo -e "${BLUE}🎯 Starting cache node...${NC}"
+echo -e "${BLUE}🎯 Starting cache node with Java 11+ compatibility...${NC}"
 echo -e "${YELLOW}   Press Ctrl+C to stop${NC}"
 echo
+
+# Set MAVEN_OPTS for Java module access (fixes LMDB issue)
+export MAVEN_OPTS="--add-opens java.base/java.nio=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED"
 
 # Start the application
 exec mvn exec:java \

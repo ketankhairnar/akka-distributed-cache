@@ -25,33 +25,73 @@
             <artifactId>akka-actor-typed_2.13</artifactId>
             <version>${akka.version}</version>
         </dependency>
+
+        <!-- Akka Cluster -->
         <dependency>
             <groupId>com.typesafe.akka</groupId>
             <artifactId>akka-cluster-typed_2.13</artifactId>
             <version>${akka.version}</version>
         </dependency>
+
+        <!-- Akka Cluster Sharding -->
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-cluster-sharding-typed_2.13</artifactId>
+            <version>${akka.version}</version>
+        </dependency>
+
+        <!-- Akka HTTP -->
         <dependency>
             <groupId>com.typesafe.akka</groupId>
             <artifactId>akka-http_2.13</artifactId>
             <version>${akka.http.version}</version>
         </dependency>
 
-        <!-- Logging -->
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>1.4.6</version>
-        </dependency>
-
+        <!-- Akka HTTP Jackson Support -->
         <dependency>
             <groupId>com.typesafe.akka</groupId>
             <artifactId>akka-http-jackson_2.13</artifactId>
             <version>${akka.http.version}</version>
         </dependency>
+
+        <!-- Jackson for JSON (compatible with Scala module) -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>2.13.5</version>
+        </dependency>
+
+        <!-- Akka Serialization Jackson (compatible versions) -->
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-serialization-jackson_2.13</artifactId>
+            <version>${akka.version}</version>
+        </dependency>
+
+        <!-- Jackson Core and Annotations (compatible versions) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>2.13.5</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>2.13.5</version>
+        </dependency>
+
+        <!-- Logging -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.4.11</version>
+        </dependency>
+
+        <!-- SLF4J API (to fix SLF4J binding issues) -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.7</version>
         </dependency>
 
     </dependencies>
@@ -61,7 +101,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.10.1</version>
+                <version>3.11.0</version>
                 <configuration>
                     <source>11</source>
                     <target>11</target>

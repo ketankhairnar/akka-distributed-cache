@@ -1,12 +1,13 @@
 # Akka Distributed Cache
 
-A high-performance, distributed cache system built with Akka Cluster and Akka HTTP. This project provides a scalable, fault-tolerant caching solution with RESTful API endpoints and comprehensive cluster management capabilities.
+A high-performance, distributed cache system built with Akka Cluster Sharding and Akka HTTP. This project provides a scalable, fault-tolerant caching solution with RESTful JSON API endpoints and comprehensive cluster management capabilities.
 
 ## 🚀 Features
 
-- **Distributed Architecture**: Built on Akka Cluster for horizontal scaling
-- **RESTful API**: Simple HTTP interface for cache operations
+- **Distributed Architecture**: Built on Akka Cluster Sharding for horizontal scaling
+- **RESTful JSON API**: Simple HTTP interface with JSON request/response format
 - **Fault Tolerance**: Automatic failure detection and recovery
+- **Entity Distribution**: Intelligent key-based entity distribution across cluster nodes
 - **Production Ready**: Comprehensive logging, monitoring, and management scripts
 - **Development Friendly**: Easy setup and testing scripts for rapid development
 
@@ -46,12 +47,14 @@ chmod +x scripts/setup-project.sh
 # - Akka Cluster: localhost:2551
 ```
 
-### 3. Test Basic Operations
+### 3. Test Basic Operations (JSON API)
 ```bash
-# Store a value
-curl -X PUT http://localhost:8080/cache/hello -d 'world'
+# Store a value (JSON format)
+curl -X PUT http://localhost:8080/cache/hello \
+     -H 'Content-Type: application/json' \
+     -d '{"value":"world"}'
 
-# Retrieve the value
+# Retrieve the value (returns JSON)
 curl http://localhost:8080/cache/hello
 
 # Check node status
@@ -60,7 +63,7 @@ curl http://localhost:8080/admin/status
 # View API documentation
 curl http://localhost:8080/api
 ```
-<!--
+
 ### 4. Start Full Cluster (Production)
 ```bash
 # Start 3-node cluster
@@ -72,22 +75,55 @@ curl http://localhost:8080/api
 # Run comprehensive tests
 ./scripts/test-operations.sh
 ```
--->
+
 ## 📚 API Reference
 
-### Cache Operations
+### Cache Operations (JSON Format)
 
-| Method | Endpoint | Description | Example |
-|--------|----------|-------------|---------|
-| `PUT` | `/cache/{key}` | Store a value | `curl -X PUT http://localhost:8080/cache/mykey -d 'myvalue'` |
-| `GET` | `/cache/{key}` | Retrieve a value | `curl http://localhost:8080/cache/mykey` |
-| `DELETE` | `/cache/{key}` | Remove a value | `curl -X DELETE http://localhost:8080/cache/mykey` |
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|--------------|----------|
+| `PUT` | `/cache/{key}` | Store a value | `{"value":"data"}` | `Put successful` |
+| `GET` | `/cache/{key}` | Retrieve a value | None | `{"value":"data"}` |
+| `DELETE` | `/cache/{key}` | Remove a value | None | `Delete successful` |
+
+### Examples
+
+```bash
+# Store data with JSON
+curl -X PUT http://localhost:8080/cache/user123 \
+     -H 'Content-Type: application/json' \
+     -d '{"value":"john_doe"}'
+
+# Retrieve data (returns JSON)
+curl http://localhost:8080/cache/user123
+# Response: {"value":"john_doe"}
+
+# Delete data
+curl -X DELETE http://localhost:8080/cache/user123
+```
+
+### Cluster Operations
+
+```bash
+# Test data distribution across nodes
+curl -X PUT http://localhost:8080/cache/key1 \
+     -H 'Content-Type: application/json' \
+     -d '{"value":"node1_data"}'
+
+curl -X PUT http://localhost:8081/cache/key2 \
+     -H 'Content-Type: application/json' \
+     -d '{"value":"node2_data"}'
+
+# Access data from any node (automatic routing)
+curl http://localhost:8082/cache/key1  # Gets data from node storing key1
+curl http://localhost:8080/cache/key2  # Gets data from node storing key2
+```
 
 ### Admin Operations
 
 | Method | Endpoint | Description | Response |
 |--------|----------|-------------|----------|
-| `GET` | `/admin/status` | Detailed node status | Node info, timestamps, actor details |
+| `GET` | `/admin/status` | Detailed node status | Node info, timestamps, sharding details |
 | `GET` | `/admin/health` | Simple health check | `OK` |
 | `GET` | `/` | Root health check | Node online confirmation |
 | `GET` | `/api` | API documentation | Complete API reference |
@@ -129,19 +165,20 @@ curl http://localhost:8080/api
 - Quick startup for development
 - Port conflict detection
 - Direct console output
+- JSON API ready
 - Immediate error feedback
 
 ### `start-cluster.sh`
-**Purpose**: Production cluster management
+**Purpose**: Production cluster management with sharding
 
 ```bash
-# Start 3-node cluster
+# Start 3-node cluster with sharding
 ./scripts/start-cluster.sh start
 
-# Check detailed status
+# Check detailed cluster status
 ./scripts/start-cluster.sh status
 
-# Stop cluster
+# Stop cluster gracefully
 ./scripts/start-cluster.sh stop
 
 # Restart cluster
@@ -149,14 +186,18 @@ curl http://localhost:8080/api
 
 # Clean logs and stop
 ./scripts/start-cluster.sh clean
+
+# Run comprehensive tests
+./scripts/start-cluster.sh test
 ```
 
 **Features**:
 - Manages 3-node cluster (ports 8080, 8081, 8082)
-- Background process management
-- Health verification
+- Background process management with CountDownLatch blocking
+- Cluster sharding with entity distribution
+- Health verification with JSON API testing
 - Detailed status reporting
-- Graceful shutdown
+- Graceful shutdown with coordinated shutdown
 
 ### `test-operations.sh`
 **Purpose**: Comprehensive functionality testing
@@ -166,12 +207,13 @@ curl http://localhost:8080/api
 ```
 
 **Test Coverage**:
-- Basic cache operations (PUT/GET/DELETE)
-- Multi-key operations
-- Cross-node data access
+- JSON API operations (PUT/GET/DELETE)
+- Multi-key operations across cluster
+- Cross-node data access and routing
+- Entity distribution verification
 - Admin endpoint validation
 - Error case handling
-- Performance testing
+- Cluster consistency testing
 
 ### `verify-endpoints.sh`
 **Purpose**: Quick endpoint verification
@@ -185,8 +227,8 @@ curl http://localhost:8080/api
 ```
 
 **Features**:
-- Tests all API endpoints
-- Validates response codes
+- Tests all JSON API endpoints
+- Validates response codes and formats
 - Shows working examples
 - Quick troubleshooting
 
@@ -197,21 +239,21 @@ akka-distributed-cache/
 ├── src/
 │   ├── main/
 │   │   ├── java/ai/akka/cache/
-│   │   │   ├── CacheActor.java              # Core cache logic
-│   │   │   ├── CacheRoutes.java             # HTTP API routes
-│   │   │   └── DistributedCacheApplication.java # Main application
+│   │   │   ├── CacheActor.java              # Entity actors with sharding
+│   │   │   ├── CacheRoutes.java             # HTTP JSON API routes
+│   │   │   └── DistributedCacheApplication.java # Main app with sharding
 │   │   └── resources/
-│   │       ├── application.conf             # Akka configuration
+│   │       ├── application.conf             # Cluster sharding configuration
 │   │       └── logback.xml                  # Logging configuration
 │   └── test/java/                           # Test files (future)
 ├── scripts/
 │   ├── setup-project.sh                    # Project initialization
 │   ├── start-single.sh                     # Single node startup
-│   ├── start-cluster.sh                    # Cluster management
+│   ├── start-cluster.sh                    # Cluster management with sharding
 │   ├── test-operations.sh                  # Comprehensive testing
 │   └── verify-endpoints.sh                 # Quick endpoint verification
-├── logs/                                    # Runtime logs
-├── pids/                                    # Process ID files
+├── logs/                                    # Runtime logs (node1.log, node2.log, node3.log)
+├── pids/                                    # Process ID files for cluster nodes
 ├── pom.xml                                  # Maven configuration
 └── README.md                               # This file
 ```
@@ -226,9 +268,16 @@ akka-distributed-cache/
 | Node 2 | 8081 | 2552 | Cluster member |
 | Node 3 | 8082 | 2553 | Cluster member |
 
+### Cluster Sharding
+
+- **Entity Distribution**: Keys are automatically distributed across nodes based on hash
+- **Number of Shards**: 10 (configurable in application.conf)
+- **State Store**: Distributed Data (ddata) for cluster coordination
+- **Rebalancing**: Automatic shard rebalancing as nodes join/leave
+
 ### Key Configuration Files
 
-- **`application.conf`**: Akka cluster settings, timeouts, logging levels
+- **`application.conf`**: Akka cluster settings, sharding configuration, timeouts
 - **`logback.xml`**: Logging configuration for console and file output
 - **`pom.xml`**: Maven dependencies and build configuration
 
@@ -254,23 +303,36 @@ mvn clean compile
 java -version  # Ensure Java 11+
 ```
 
-**3. Node Won't Start**
+**3. Cluster Node Won't Start**
 ```bash
 # Check logs
 tail -f logs/node1.log
 
-# Verify project structure
-./scripts/setup-project.sh
+# Verify cluster status
+./scripts/start-cluster.sh status
+
+# Restart cluster
+./scripts/start-cluster.sh restart
 ```
 
-**4. Cache Operations Fail**
+**4. JSON API Operations Fail**
 ```bash
 # Verify endpoints
 ./scripts/verify-endpoints.sh
 
-# Check node health
+# Check cluster health
 curl http://localhost:8080/admin/status
+curl http://localhost:8081/admin/status
+curl http://localhost:8082/admin/status
+
+# Test sharding distribution
+./scripts/test-operations.sh
 ```
+
+**5. Serialization Issues**
+- All commands/responses are now properly serializable
+- EntityRef handles cluster communication automatically
+- No more ActorRef serialization errors
 
 ### Log Locations
 
@@ -286,8 +348,10 @@ curl http://localhost:8080/admin/status
 # 1. Start development node
 ./scripts/start-single.sh
 
-# 2. Test your changes
-curl -X PUT http://localhost:8080/cache/test -d 'value'
+# 2. Test your changes (JSON API)
+curl -X PUT http://localhost:8080/cache/test \
+     -H 'Content-Type: application/json' \
+     -d '{"value":"test-data"}'
 curl http://localhost:8080/cache/test
 
 # 3. Stop with Ctrl+C
@@ -301,20 +365,21 @@ curl http://localhost:8080/cache/test
 # 2. Run comprehensive tests
 ./scripts/test-operations.sh
 
-# 3. Test Single Node behavior
-./scripts/start-single.sh
+# 3. Test cluster behavior
+./scripts/start-cluster.sh start
 ./scripts/test-operations.sh
+./scripts/start-cluster.sh stop
 ```
-<!--
+
 ### Production Deployment
 ```bash
 # 1. Setup production environment
 ./scripts/setup-project.sh
 
-# 2. Start cluster
+# 2. Start cluster with sharding
 ./scripts/start-cluster.sh start
 
-# 3. Verify health
+# 3. Verify cluster health
 ./scripts/start-cluster.sh status
 
 # 4. Monitor logs
@@ -325,37 +390,36 @@ tail -f logs/*.log
 
 - **Latency**: Sub-millisecond for local cache hits
 - **Throughput**: Thousands of operations per second per node
-- **Scalability**: Horizontal scaling via cluster membership
+- **Scalability**: Horizontal scaling via cluster sharding
 - **Consistency**: Eventually consistent across cluster nodes
 - **Availability**: High availability through cluster redundancy
+- **Distribution**: Automatic entity distribution across nodes
 
 ## 🛡️ Production Considerations
 
 ### Monitoring
-- Check `/admin/status` for node health
-- Monitor log files for errors
-- Use cluster status for distributed health
+- Check `/admin/status` for node health and sharding info
+- Monitor log files for errors and cluster events
+- Use cluster status for distributed health verification
 
 ### Scaling
 - Add nodes by starting with different ports
-- Update seed-nodes in configuration
-- Monitor memory usage per node
+- Entities automatically rebalance across new nodes
+- Monitor memory usage per node and shard distribution
 
 ### Security
 - Consider adding authentication to admin endpoints
 - Use HTTPS in production
 - Implement rate limiting if needed
 
--->
-
 ## 🔮 Future Enhancements
 
-- **Persistence**: Add database backing for durability
+- **Persistence**: Add database backing for durability with Akka Persistence
 - **Authentication**: Secure admin and cache endpoints
-- **Metrics**: Prometheus/Grafana integration
+- **Metrics**: Prometheus/Grafana integration for cluster monitoring
 - **Consistency Levels**: Configurable consistency (ONE/QUORUM/ALL)
-- **Replication**: Configurable replication factor
-- **Load Balancing**: Built-in load balancing strategies
+- **Replication**: Configurable replication factor across nodes
+- **Load Balancing**: Advanced load balancing strategies
 
 ## 📄 License
 
@@ -366,11 +430,12 @@ tail -f logs/*.log
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test with provided scripts
-5. Submit a pull request
+4. Test with provided scripts (single node and cluster)
+5. Verify JSON API functionality
+6. Submit a pull request
 
 ---
 
-**Happy Caching! 🚀**
+**Happy Distributed Caching! 🚀**
 
 For issues or questions, please check the troubleshooting section or create an issue in the repository.
