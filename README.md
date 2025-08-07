@@ -68,10 +68,10 @@ curl http://localhost:8080/api
 ### 4. Start Full Cluster (Production)
 ```bash
 # Start 3-node cluster
-./scripts/start-cluster.sh start
+./scripts/cluster.sh start
 
 # Check cluster status
-./scripts/start-cluster.sh status
+./scripts/cluster.sh status
 
 # Run comprehensive tests
 ./scripts/test-operations.sh
@@ -187,27 +187,27 @@ curl http://localhost:8080/cache/key2  # Returns: {"value":"node2_data"}
 - Error case handling
 - Cluster consistency testing
 
-### `start-cluster.sh`
+### `cluster.sh`
 **Purpose**: Production cluster management with sharding
 
 ```bash
 # Start 3-node cluster with sharding
-./scripts/start-cluster.sh start
+./scripts/cluster.sh start
 
 # Check detailed cluster status
-./scripts/start-cluster.sh status
+./scripts/cluster.sh status
 
 # Stop cluster gracefully
-./scripts/start-cluster.sh stop
+./scripts/cluster.sh stop
 
 # Restart cluster
-./scripts/start-cluster.sh restart
+./scripts/cluster.sh restart
 
 # Clean logs and stop
-./scripts/start-cluster.sh clean
+./scripts/cluster.sh clean
 
 # Run comprehensive tests
-./scripts/start-cluster.sh test
+./scripts/cluster.sh test
 ```
 
 **Features**:
@@ -233,15 +233,15 @@ akka-distributed-cache/
 │   │       └── logback.xml                  # Logging configuration
 │   └── test/java/                           # Test files (future)
 ├── scripts/
-│   ├── setup-project.sh                    # Project initialization
-│   ├── start-single.sh                     # Single node startup
-│   ├── start-cluster.sh                    # Cluster management with sharding
-│   ├── test-operations.sh                  # Comprehensive testing
-│   └── verify-endpoints.sh                 # Quick endpoint verification
+│   ├── setup-project.sh                     # Project initialization
+│   ├── start-single.sh                      # Single node startup
+│   ├── cluster.sh                           # Cluster management with sharding
+│   ├── test-operations.sh                   # Comprehensive testing
+│   └── verify-endpoints.sh                  # Quick endpoint verification
 ├── logs/                                    # Runtime logs (node1.log, node2.log, node3.log)
 ├── pids/                                    # Process ID files for cluster nodes
 ├── pom.xml                                  # Maven configuration
-└── README.md                               # This file
+└── README.md                                # This file
 ```
 
 ## 🔧 Configuration

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Akka Distributed Cache - Cluster Startup Script
-# Usage: ./scripts/start-cluster.sh [start|stop|restart|status|clean]
+# Usage: ./scripts/cluster.sh [start|stop|restart|status|clean]
 
 set -e
 
