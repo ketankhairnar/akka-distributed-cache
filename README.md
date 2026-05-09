@@ -1,15 +1,65 @@
 # Akka Distributed Cache
 
-A high-performance, distributed cache system built with Akka Cluster Sharding and Akka HTTP. Provides a scalable, fault-tolerant caching solution with a RESTful JSON API.
+A distributed cache built on Akka Cluster Sharding and Akka HTTP. One entity actor per cache key, automatic shard rebalancing across a 3-node cluster, JSON HTTP API on every node.
 
-## 🚀 Features
+> Learning project — not production-ready. See [Limits](#limits) before using.
 
-- **Distributed Architecture**: Akka Cluster Sharding for horizontal scaling
-- **RESTful JSON API**: Simple HTTP interface with JSON request/response
-- **Fault Tolerance**: Automatic failure detection and recovery
-- **Entity Distribution**: Intelligent key-based distribution across cluster nodes
-- **Production Ready**: Comprehensive logging, monitoring, and management scripts
-- **Development Friendly**: Easy setup and testing scripts for rapid development
+## Architecture
+
+```
+                    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+   HTTP client ───▶ │   Node 1     │  │   Node 2     │  │   Node 3     │
+   (any node)       │  :8080 HTTP  │  │  :8081 HTTP  │  │  :8082 HTTP  │
+                    │  :2551 Akka  │◀▶│  :2552 Akka  │◀▶│  :2553 Akka  │
+                    └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+                           │                 │                 │
+                           ▼                 ▼                 ▼
+                    ┌─────────────────────────────────────────────────┐
+                    │         Akka Cluster Sharding (10 shards)        │
+                    │   shard = hash(key) % 10                         │
+                    │   each shard owns N entity actors                │
+                    │   entity = single CacheActor instance per key    │
+                    └─────────────────────────────────────────────────┘
+                           │
+                           ▼
+                    ┌──────────────────┐
+                    │ Distributed Data │   shard → node assignment
+                    │  (CRDT, ddata)   │   gossiped via Akka Cluster
+                    └──────────────────┘
+```
+
+**Request lifecycle (`PUT /cache/foo`):**
+
+1. HTTP request hits any node (e.g. node 2). `CacheRoutes` parses it.
+2. `CacheProxy` resolves the entity ref via `ClusterSharding.entityRefFor("CacheActor", "foo")`.
+3. Akka routes the message to the node currently hosting shard `hash("foo") % 10`. Shard rebalances move entities transparently.
+4. The single `CacheActor` for key `foo` updates its in-memory map and replies.
+5. Response returns through the proxy to the originating HTTP client.
+
+Reads, writes, deletes follow the same path. Single-writer per key — no concurrency on the hot value.
+
+## Why this design
+
+| Choice | Why |
+|---|---|
+| Akka Cluster Sharding (not consistent hashing) | Built-in shard rebalance during membership change. No manual ring management. |
+| ddata for shard coordination | CRDT-based, no external coordinator (no etcd / ZooKeeper). |
+| One entity actor per key | Eliminates concurrency control on the value. Akka's mailbox is the lock. |
+| In-memory state | Cache, not store. Persistence is a different problem. |
+
+## Limits
+
+Honest list of what this does **not** do:
+
+- **No replication.** A node dying loses all entities it owned until they're re-created on writes elsewhere. Reads fail until then.
+- **No persistence beyond process lifetime.** `state-store-mode = ddata` covers shard assignments, not entity state. `passivate-idle-entity-after = 10m` evicts cold keys.
+- **No quorum reads/writes.** Single-writer-per-key gives strong consistency on hot path; failure semantics are last-writer-wins on entity recreation.
+- **Java serialization.** Faster to set up, slow + fragile in production. Switch to Jackson or protobuf for real use.
+- **No metrics endpoint.** `/admin/status` exposes node info; no Prometheus, no histograms.
+- **In-memory journal.** Persistence module is wired but uses `inmem` journal. Not crash-safe.
+- **3-node cluster fixed in scripts.** Number of shards (10) is fine for ~3 nodes; needs raising for larger deployments.
+
+## Features
 
 ## 📋 Prerequisites
 
